@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DISC DUEL</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --red:#ff3c3c;--blue:#3c8fff;--green:#3cff6e;--yellow:#ffe94e;
+  --bg:#080810;--surface:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.08);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:#fff;font-family:'Rajdhani',sans-serif}
+canvas{position:absolute;inset:0;display:block}
+
+/* ── Screens ── */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:10}
+.screen.hidden{display:none}
+
+/* ── Menu ── */
+#menu{background:radial-gradient(ellipse at 50% 40%,#1a1a2e 0%,#080810 70%)}
+.logo{font-family:'Orbitron',monospace;font-size:clamp(2.5rem,8vw,5rem);font-weight:900;letter-spacing:0.12em;
+  background:linear-gradient(135deg,#ffe94e,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:none;line-height:1;margin-bottom:4px}
+.tagline{font-size:clamp(0.75rem,2vw,1rem);letter-spacing:0.3em;color:#888;text-transform:uppercase}
+.menu-btns{display:flex;flex-direction:column;gap:12px;width:min(320px,90vw);margin-top:12px}
+.btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;
+  padding:14px 24px;font-size:1.1rem;font-family:'Rajdhani',sans-serif;font-weight:600;
+  letter-spacing:0.15em;border-radius:10px;cursor:pointer;transition:all 0.15s;text-transform:uppercase}
+.btn:hover{background:rgba(255,200,0,0.15);border-color:rgba(255,200,0,0.5);color:#ffe94e;transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn.primary{background:linear-gradient(135deg,#ffe94e,#ff8c00);color:#000;border:none;font-weight:700}
+.btn.primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.controls-hint{font-size:0.8rem;color:#555;text-align:center;line-height:1.8;margin-top:8px}
+.controls-hint span{color:#888}
+
+/* ── Lobby ── */
+#lobby{background:var(--bg)}
+.room-code-display{font-family:'Orbitron',monospace;font-size:3rem;font-weight:900;
+  letter-spacing:0.2em;color:#ffe94e;text-align:center}
+.room-label{font-size:0.85rem;letter-spacing:0.2em;color:#555;text-transform:uppercase;text-align:center;margin-top:-10px}
+.player-slots{display:flex;gap:12px;margin:8px 0;flex-wrap:wrap;justify-content:center}
+.slot{width:120px;height:100px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  transition:all 0.3s}
+.slot.filled{border-color:currentColor}
+.slot-disc{width:44px;height:44px;border-radius:50%;opacity:0.9}
+.slot-name{font-size:0.85rem;font-weight:600;opacity:0.9}
+.slot-you{font-size:0.7rem;color:#ffe94e;letter-spacing:0.1em}
+.slot.empty .slot-disc{background:rgba(255,255,255,0.05);border:2px dashed rgba(255,255,255,0.1)}
+.slot.empty .slot-name{color:#333;font-size:0.8rem}
+.lobby-info{font-size:0.9rem;color:#666;text-align:center}
+.join-form{display:flex;gap:8px;width:min(300px,90vw)}
+.join-form input{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  color:#fff;padding:12px 16px;border-radius:8px;font-size:1rem;font-family:'Rajdhani',sans-serif;
+  text-transform:uppercase;letter-spacing:0.15em;outline:none}
+.join-form input:focus{border-color:rgba(255,200,0,0.4)}
+.join-form input::placeholder{color:#333;text-transform:none;letter-spacing:0}
+.or-divider{color:#444;font-size:0.85rem;letter-spacing:0.1em}
+.status-msg{font-size:0.85rem;color:#888;text-align:center;min-height:20px}
+
+/* ── HUD ── */
+#hud{position:absolute;top:0;left:0;right:0;z-index:5;pointer-events:none;
+  display:flex;justify-content:space-between;padding:12px 16px;gap:8px}
+.phud{background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);border:1px solid;border-radius:10px;
+  padding:8px 12px;min-width:120px;max-width:160px;flex:1;transition:opacity 0.3s}
+.phud.dead{opacity:0.3}
+.phud-name{font-family:'Orbitron',monospace;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;margin-bottom:4px}
+.phud-you{font-size:0.6rem;color:#ffe94e;margin-top:-2px;margin-bottom:3px}
+.hp-track{background:rgba(255,255,255,0.1);height:5px;border-radius:3px;margin:3px 0}
+.hp-fill{height:5px;border-radius:3px;transition:width 0.08s}
+.phud-stats{font-size:0.72rem;color:#888;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+.phud-stats .ammo{color:#ffaa44}
+.phud-stats .shield{color:#44aaff}
+.phud-stats .kills{color:#aaa}
+
+/* ── Game over ── */
+#gameover{background:rgba(0,0,0,0.8);backdrop-filter:blur(12px)}
+.winner-label{font-size:0.85rem;letter-spacing:0.3em;color:#888;text-transform:uppercase}
+.winner-name{font-family:'Orbitron',monospace;font-size:clamp(2rem,6vw,3.5rem);font-weight:900;letter-spacing:0.1em}
+.result-stats{display:flex;gap:16px;font-size:0.9rem;color:#666;margin-top:-4px}
+
+/* ── Dodge indicator ── */
+#dodge-indicator{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+  z-index:5;pointer-events:none;display:none;
+  background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px;padding:6px 16px;font-size:0.8rem;color:#888;letter-spacing:0.1em}
+
+/* ── Ping ── */
+#ping{position:absolute;bottom:8px;right:12px;font-size:0.7rem;color:#333;z-index:5;pointer-events:none}
+
+/* ── Connection error ── */
+#conn-err{position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:#c00;color:#fff;padding:8px 20px;border-radius:6px;font-size:0.85rem;
+  z-index:20;display:none}
+</style>
+</head>
+<body>
+
+<!-- ── MENU ── -->
+<div class="screen" id="menu">
+  <div class="logo">DISC DUEL</div>
+  <div class="tagline">Online · 2–4 Players · 60fps</div>
+  <div class="menu-btns">
+    <button class="btn primary" onclick="quickPlay()">⚡ Quick Play</button>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="join-form">
+        <input id="join-code" placeholder="Room code (e.g. AB12CD)" maxlength="6">
+        <button class="btn" style="padding:12px 16px" onclick="joinRoom()">Join</button>
+      </div>
+    </div>
+    <div class="controls-hint">
+      <span>WASD / Arrows</span> Move &nbsp;·&nbsp; <span>F / ,</span> Shoot<br>
+      <span>G / K</span> Dodge Left &nbsp;·&nbsp; <span>H / L</span> Dodge Right<br>
+      Each player can use any set of keys
+    </div>
+  </div>
+</div>
+
+<!-- ── LOBBY ── -->
+<div class="screen hidden" id="lobby">
+  <div class="room-code-display" id="lobby-code">------</div>
+  <div class="room-label">Share this code with friends</div>
+  <div class="player-slots" id="slots"></div>
+  <div class="status-msg" id="lobby-status">Waiting for players... (need 2–4)</div>
+  <div class="menu-btns" style="gap:10px">
+    <button class="btn primary hidden" id="start-btn" onclick="sendStart()">▶ Start Game</button>
+    <button class="btn" onclick="leaveRoom()">Leave</button>
+  </div>
+</div>
+
+<!-- ── HUD ── -->
+<div id="hud" style="display:none"></div>
+
+<!-- ── GAME CANVAS ── -->
+<canvas id="c"></canvas>
+
+<!-- ── GAME OVER ── -->
+<div class="screen hidden" id="gameover">
+  <div class="winner-label">Winner</div>
+  <div class="winner-name" id="winner-name"></div>
+  <div class="result-stats" id="result-stats"></div>
+  <div class="menu-btns" style="gap:10px;margin-top:12px">
+    <button class="btn primary" onclick="leaveRoom()">Back to Menu</button>
+  </div>
+</div>
+
+<!-- ── EXTRAS ── -->
+<div id="dodge-indicator">DODGE READY</div>
+<div id="ping">-- ms</div>
+<div id="conn-err" id="conn-err">Connection lost — reconnecting...</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────────────────────
+const ARENA_R = 280;
+const PLAYER_R = 20;
+const BULLET_R = 5;
+const COLORS = ['#ff3c3c','#3c8fff','#3cff6e','#ffe94e'];
+const DARK_COLORS = ['#991f1f','#1a4d99','#1a8c3c','#997d00'];
+const GLOW_COLORS = ['rgba(255,60,60,', 'rgba(60,143,255,', 'rgba(60,255,110,', 'rgba(255,233,78,'];
+const SLOT_NAMES = ['P1','P2','P3','P4'];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let ws = null, myId = null, mySlot = -1, isHost = false;
+let gameState = null;    // latest authoritative state from server
+let prevState = null;    // previous state for interpolation
+let renderState = null;  // interpolated state
+let phase = 'menu';      // menu | lobby | playing | ended
+let roomCode = '';
+let pingStart = 0, pingMs = 0;
+let lastStateTime = 0;
+let inputSeq = 0;
+let particles = [];
+let bulletTrails = {};   // bulletId -> [{x,y}]
+let lastBulletIds = new Set();
+let frameId;
+let serverTickMs = 1000 / 60;
+
+// ─── Canvas setup ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, scale, cx, cy;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  scale = Math.min(W, H) / 620;
+  cx = W / 2; cy = H / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── Input ───────────────────────────────────────────────────────────────────
+const keys = {};
+const KEY_CONFIGS = [
+  { up:'w', down:'s', left:'a', right:'d', shoot:'f', dodgeL:'g', dodgeR:'h' },
+  { up:'arrowup', down:'arrowdown', left:'arrowleft', right:'arrowright', shoot:',', dodgeL:'k', dodgeR:'l' },
+  { up:'i', down:'k', left:'j', right:'l', shoot:'b', dodgeL:'n', dodgeR:'m' },
+  { up:'numpad8', down:'numpad2', left:'numpad4', right:'numpad6', shoot:'numpad0', dodgeL:'numpad7', dodgeR:'numpad9' },
+];
+
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function getInput() {
+  if (mySlot < 0) return null;
+  const cfg = KEY_CONFIGS[mySlot];
+  // also allow any slot's keys (so keyboard sharing works)
+  let up = false, down = false, left = false, right = false, shoot = false, dodgeL = false, dodgeR = false;
+  for (const c of KEY_CONFIGS) {
+    if (keys[c.up]) up = true;
+    if (keys[c.down]) down = true;
+    if (keys[c.left]) left = true;
+    if (keys[c.right]) right = true;
+    if (keys[c.shoot]) shoot = true;
+    if (keys[c.dodgeL]) dodgeL = true;
+    if (keys[c.dodgeR]) dodgeR = true;
+  }
+  return { up, down, left, right, shoot, dodgeL, dodgeR };
+}
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
+function connect(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}`);
+  ws.onopen = () => { onOpen && onOpen(); pingLoop(); };
+  ws.onmessage = e => handleMsg(JSON.parse(e.data));
+  ws.onclose = () => {
+    document.getElementById('conn-err').style.display = 'block';
+    setTimeout(() => connect(onOpen), 2000);
+  };
+  ws.onerror = () => {};
+}
+
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+function pingLoop() {
+  setInterval(() => {
+    pingStart = performance.now();
+    send({ type: 'ping' });
+  }, 2000);
+}
+
+function handleMsg(msg) {
+  if (msg.type === 'pong') {
+    pingMs = Math.round(performance.now() - pingStart);
+    document.getElementById('ping').textContent = pingMs + ' ms';
+    return;
+  }
+  if (msg.type === 'joined') {
+    myId = msg.playerId; mySlot = msg.slot;
+    isHost = msg.slot === 0;
+    roomCode = msg.roomCode;
+    document.getElementById('lobby-code').textContent = roomCode;
+    document.getElementById('start-btn').classList.toggle('hidden', !isHost);
+    showScreen('lobby');
+    return;
+  }
+  if (msg.type === 'lobby') {
+    updateLobbySlots(msg.players);
+    return;
+  }
+  if (msg.type === 'start') {
+    startPlaying();
+    return;
+  }
+  if (msg.type === 'state') {
+    prevState = gameState;
+    gameState = msg;
+    lastStateTime = performance.now();
+    return;
+  }
+  if (msg.type === 'gameOver') {
+    showGameOver(msg.winner);
+    return;
+  }
+  if (msg.type === 'error') {
+    document.getElementById('lobby-status').textContent = '⚠ ' + msg.message;
+    return;
+  }
+}
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+function showScreen(name) {
+  phase = name;
+  ['menu','lobby','gameover'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== name);
+  });
+  document.getElementById('hud').style.display = name === 'playing' ? 'flex' : 'none';
+}
+
+function updateLobbySlots(players) {
+  const container = document.getElementById('slots');
+  container.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const p = players.find(p => p.slot === i);
+    const slot = document.createElement('div');
+    slot.className = 'slot ' + (p ? 'filled' : 'empty');
+    if (p) slot.style.borderColor = COLORS[i];
+    const disc = document.createElement('div');
+    disc.className = 'slot-disc';
+    disc.style.background = p ? COLORS[i] : '';
+    const name = document.createElement('div');
+    name.className = 'slot-name';
+    name.textContent = p ? SLOT_NAMES[i] : 'Empty';
+    if (p) name.style.color = COLORS[i];
+    slot.appendChild(disc);
+    slot.appendChild(name);
+    if (p && p.id === myId) {
+      const you = document.createElement('div');
+      you.className = 'slot-you'; you.textContent = 'YOU';
+      slot.appendChild(you);
+    }
+    container.appendChild(slot);
+  }
+  document.getElementById('lobby-status').textContent =
+    players.length < 2 ? `Waiting... (${players.length}/4 — need at least 2)` :
+    isHost ? `${players.length}/4 players — click Start Game when ready!` :
+    `${players.length}/4 players — waiting for host to start...`;
+}
+
+function buildHud(players) {
+  const hud = document.getElementById('hud');
+  hud.innerHTML = '';
+  hud.style.display = 'flex';
+  for (const p of players) {
+    const el = document.createElement('div');
+    el.className = 'phud'; el.id = 'phud-' + p.slot;
+    el.style.borderColor = COLORS[p.slot] + '44';
+    el.innerHTML = `
+      <div class="phud-name" style="color:${COLORS[p.slot]}">${SLOT_NAMES[p.slot]}${p.id === myId ? '' : ''}</div>
+      ${p.id === myId ? '<div class="phud-you">YOU</div>' : ''}
+      <div class="hp-track"><div class="hp-fill" id="hp-${p.slot}" style="background:${COLORS[p.slot]};width:100%"></div></div>
+      <div class="phud-stats">
+        <span class="ammo" id="ammo-${p.slot}">●5</span>
+        <span class="kills" id="kills-${p.slot}">0 kills</span>
+        <span class="shield hidden" id="shield-${p.slot}">🛡</span>
+      </div>`;
+    hud.appendChild(el);
+  }
+}
+
+function updateHud(players) {
+  for (const p of players) {
+    const hp = document.getElementById('hp-' + p.slot);
+    const ammo = document.getElementById('ammo-' + p.slot);
+    const kills = document.getElementById('kills-' + p.slot);
+    const shield = document.getElementById('shield-' + p.slot);
+    const hud = document.getElementById('phud-' + p.slot);
+    if (!hp) continue;
+    hp.style.width = Math.max(0, p.hp) + '%';
+    hp.style.background = p.hp > 50 ? COLORS[p.slot] : p.hp > 25 ? '#ff8c00' : '#ff3333';
+    ammo.textContent = '●'.repeat(p.ammo) + '○'.repeat(Math.max(0, 5 - p.ammo));
+    kills.textContent = p.kills + ' kill' + (p.kills !== 1 ? 's' : '');
+    if (shield) shield.classList.toggle('hidden', !p.shield);
+    if (hud) hud.classList.toggle('dead', !p.alive);
+  }
+}
+
+function startPlaying() {
+  phase = 'playing';
+  showScreen('playing');
+  document.getElementById('hud').style.display = 'flex';
+  gameState = null; prevState = null;
+  particles = []; bulletTrails = {}; lastBulletIds = new Set();
+}
+
+function showGameOver(winner) {
+  phase = 'ended';
+  if (gameState) {
+    buildHud(gameState.players);
+    updateHud(gameState.players);
+  }
+  showScreen('gameover');
+  const wn = document.getElementById('winner-name');
+  if (winner) {
+    wn.textContent = SLOT_NAMES[winner.slot] + ' WINS!';
+    wn.style.color = COLORS[winner.slot];
+    document.getElementById('result-stats').textContent = winner.kills + ' kill' + (winner.kills !== 1 ? 's' : '');
+  } else {
+    wn.textContent = 'DRAW'; wn.style.color = '#fff';
+  }
+}
+
+// ─── Particles ───────────────────────────────────────────────────────────────
+function spawnParticles(wx, wy, color, n, spread = Math.PI * 2) {
+  const sx = cx + wx * scale, sy = cy + wy * scale;
+  for (let i = 0; i < n; i++) {
+    const a = (Math.random() - 0.5) * spread * 2;
+    const spd = (1.5 + Math.random() * 3.5) * scale;
+    particles.push({
+      x: sx, y: sy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+      color, life: 1, decay: 0.025 + Math.random() * 0.04,
+      r: (1.5 + Math.random() * 3) * scale,
+    });
+  }
+}
+
+function updateParticles() {
+  particles = particles.filter(p => p.life > 0);
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.08 * scale;
+    p.vx *= 0.95; p.vy *= 0.95;
+    p.life -= p.decay;
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life) * 0.9;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+    ctx.fillStyle = p.color; ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ─── Interpolation ───────────────────────────────────────────────────────────
+function interpolate(a, b, t) {
+  if (!a || !b) return b;
+  const lerp = (x, y) => x + (y - x) * t;
+  const lerpAngle = (a, b) => {
+    let d = b - a;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return a + d * t;
+  };
+  return {
+    ...b,
+    players: b.players.map(pb => {
+      const pa = a.players.find(p => p.id === pb.id);
+      if (!pa) return pb;
+      return { ...pb, x: lerp(pa.x, pb.x), y: lerp(pa.y, pb.y), angle: lerpAngle(pa.angle, pb.angle) };
+    }),
+    bullets: b.bullets.map(bb => {
+      const ba = a.bullets.find(bu => bu.id === bb.id);
+      if (!ba) return bb;
+      return { ...bb, x: lerp(ba.x, bb.x), y: lerp(ba.y, bb.y) };
+    }),
+  };
+}
+
+// ─── Draw helpers ─────────────────────────────────────────────────────────────
+function wx(x) { return cx + x * scale; }
+function wy(y) { return cy + y * scale; }
+function sc(r) { return r * scale; }
+
+function drawArena() {
+  const R = sc(ARENA_R);
+  // Outer dark
+  ctx.fillStyle = '#05050c'; ctx.fillRect(0, 0, W, H);
+
+  // Outer glow ring
+  const grad = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R * 1.1);
+  grad.addColorStop(0, 'rgba(255,200,50,0)');
+  grad.addColorStop(1, 'rgba(255,120,0,0.08)');
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.1, 0, Math.PI * 2);
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Grid floor
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+  const sq = 38 * scale;
+  const ox = cx % sq, oy = cy % sq;
+  for (let x = ox - sq; x < W; x += sq) {
+    for (let y = oy - sq; y < H; y += sq) {
+      ctx.fillStyle = (Math.floor((x - ox) / sq) + Math.floor((y - oy) / sq)) % 2 === 0
+        ? '#0c0c18' : '#0a0a15';
+      ctx.fillRect(x, y, sq, sq);
+    }
+  }
+  // Radial lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+  ctx.lineWidth = 0.5;
+  for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); ctx.stroke();
+  }
+  // Center circle
+  ctx.beginPath(); ctx.arc(cx, cy, sc(60), 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, sc(8), 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+
+  // Border ring (double)
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,150,30,0.4)'; ctx.lineWidth = 3 * scale; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R - 4 * scale, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,100,0,0.15)'; ctx.lineWidth = 2 * scale; ctx.stroke();
+}
+
+function drawPickup(pk) {
+  const x = wx(pk.x), y = wy(pk.y);
+  const r = sc(10);
+  const pulse = Math.sin(Date.now() * 0.004) * 2 * scale;
+  ctx.save();
+  ctx.shadowBlur = 15; ctx.shadowColor = pk.type === 'ammo' ? '#ff8800' : '#44aaff';
+  ctx.beginPath(); ctx.arc(x, y, r + pulse, 0, Math.PI * 2);
+  ctx.fillStyle = pk.type === 'ammo' ? 'rgba(255,140,0,0.9)' : 'rgba(60,160,255,0.9)';
+  ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * scale; ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${8 * scale}px Orbitron, monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(pk.type === 'ammo' ? 'A' : 'S', x, y);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawBullet(b) {
+  const x = wx(b.x), y = wy(b.y);
+  const trail = bulletTrails[b.id] || [];
+
+  // Trail
+  for (let i = 0; i < trail.length; i++) {
+    const t = i / trail.length;
+    const tc = trail[i];
+    ctx.globalAlpha = t * 0.5;
+    ctx.beginPath(); ctx.arc(wx(tc.x), wy(tc.y), sc(BULLET_R) * t * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffcc44'; ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.save();
+  ctx.shadowBlur = 12; ctx.shadowColor = '#ffaa00';
+  ctx.beginPath(); ctx.arc(x, y, sc(BULLET_R), 0, Math.PI * 2);
+  ctx.fillStyle = '#ffe94e'; ctx.fill();
+  ctx.strokeStyle = '#ff7700'; ctx.lineWidth = 1.5 * scale; ctx.stroke();
+  ctx.restore();
+}
+
+function drawPlayer(p) {
+  if (!p.alive) return;
+  const x = wx(p.x), y = wy(p.y);
+  const r = sc(PLAYER_R);
+  const color = COLORS[p.slot];
+  const dark = DARK_COLORS[p.slot];
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Invincibility / dodge flash
+  if (p.invincible > 0 || p.dodgeTime > 0) {
+    ctx.globalAlpha = 0.45 + 0.45 * Math.sin(Date.now() * 0.02);
+  }
+
+  // Shadow
+  ctx.beginPath(); ctx.arc(3 * scale, 4 * scale, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+
+  // Glow
+  ctx.save();
+  ctx.shadowBlur = 18; ctx.shadowColor = color;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = color + '55'; ctx.lineWidth = 4 * scale; ctx.stroke();
+  ctx.restore();
+
+  // Body
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2 * scale; ctx.strokeStyle = dark; ctx.stroke();
+
+  // Inner ring groove
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2);
+  ctx.fillStyle = dark + 'cc'; ctx.fill();
+
+  // Inner ring light
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
+  ctx.fillStyle = color + '55'; ctx.fill();
+
+  // Direction nub
+  const nx = Math.cos(p.angle) * r * 0.78, ny = Math.sin(p.angle) * r * 0.78;
+  ctx.beginPath(); ctx.arc(nx, ny, 4 * scale, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  // Direction line
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(nx, ny);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2 * scale; ctx.stroke();
+
+  // Shield ring
+  if (p.shield) {
+    ctx.beginPath(); ctx.arc(0, 0, r + 6 * scale, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(80,180,255,0.7)';
+    ctx.lineWidth = 2.5 * scale; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r + 6 * scale, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(80,180,255,0.15)';
+    ctx.lineWidth = 8 * scale; ctx.stroke();
+  }
+
+  // Dodge cooldown arc
+  if (p.dodgeCd > 0) {
+    const frac = 1 - (p.dodgeCd / 45);
+    ctx.beginPath(); ctx.arc(0, 0, r + 3 * scale, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * scale; ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Name tag
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${9 * scale}px Orbitron, monospace`;
+  ctx.textAlign = 'center';
+  ctx.shadowBlur = 6; ctx.shadowColor = color;
+  ctx.fillText(SLOT_NAMES[p.slot] + (p.id === myId ? ' ★' : ''), x, y - r - 6 * scale);
+  ctx.shadowBlur = 0;
+}
+
+// ─── Main render loop ────────────────────────────────────────────────────────
+let lastFrameTime = 0;
+let inputTick = 0;
+
+function loop(now) {
+  frameId = requestAnimationFrame(loop);
+  const dt = now - lastFrameTime;
+  lastFrameTime = now;
+
+  // Send input at ~60hz
+  if (phase === 'playing' && ws && ws.readyState === 1) {
+    const inp = getInput();
+    if (inp) { send({ type: 'input', input: inp, seq: ++inputSeq }); }
+  }
+
+  // Render
+  ctx.clearRect(0, 0, W, H);
+  drawArena();
+
+  if (phase === 'playing' || phase === 'ended') {
+    if (!gameState) return;
+
+    // Interpolate between prev and current state
+    const timeSince = performance.now() - lastStateTime;
+    const t = Math.min(1, timeSince / serverTickMs);
+    const state = prevState ? interpolate(prevState, gameState, t) : gameState;
+
+    // Build HUD on first frame
+    if (!document.getElementById('phud-0') && gameState.players.length > 0) {
+      buildHud(gameState.players);
+    }
+    updateHud(gameState.players);
+
+    // Detect new/destroyed bullets for effects
+    const curIds = new Set(gameState.bullets.map(b => b.id));
+    for (const id of lastBulletIds) {
+      if (!curIds.has(id)) {
+        // bullet died — find approx pos from trail
+        const trail = bulletTrails[id];
+        if (trail && trail.length) {
+          const last = trail[trail.length - 1];
+          spawnParticles(last.x, last.y, '#ffcc44', 6);
+        }
+        delete bulletTrails[id];
+      }
+    }
+    lastBulletIds = curIds;
+
+    // Update bullet trails
+    for (const b of state.bullets) {
+      if (!bulletTrails[b.id]) bulletTrails[b.id] = [];
+      bulletTrails[b.id].push({ x: b.x, y: b.y });
+      if (bulletTrails[b.id].length > 10) bulletTrails[b.id].shift();
+    }
+
+    // Player hit particles (detect low HP changes)
+    for (const p of state.players) {
+      if (!p.alive && gameState.players.find(gp => gp.id === p.id && gp.alive === false)) {
+        spawnParticles(p.x, p.y, COLORS[p.slot], 30);
+      }
+    }
+
+    // Draw pickups
+    for (const pk of state.pickups) drawPickup(pk);
+
+    // Draw bullets
+    for (const b of state.bullets) drawBullet(b);
+
+    // Draw players
+    for (const p of state.players) drawPlayer(p);
+
+    // Particles
+    updateParticles();
+    drawParticles();
+
+    // My dodge indicator
+    const me = gameState.players.find(p => p.id === myId);
+    const di = document.getElementById('dodge-indicator');
+    if (me && di) {
+      di.style.display = 'block';
+      di.textContent = me.dodgeCd > 0 ? `DODGE ${Math.ceil(me.dodgeCd / 60 * 1000)}ms` : 'DODGE READY';
+      di.style.color = me.dodgeCd > 0 ? '#555' : '#ffe94e';
+      di.style.borderColor = me.dodgeCd > 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,233,78,0.3)';
+    }
+  }
+}
+
+// ─── Actions ─────────────────────────────────────────────────────────────────
+function quickPlay() {
+  connect(() => send({ type: 'join' }));
+}
+
+function joinRoom() {
+  const code = document.getElementById('join-code').value.trim();
+  if (!code) return;
+  if (ws && ws.readyState === 1) {
+    send({ type: 'join', roomCode: code });
+  } else {
+    connect(() => send({ type: 'join', roomCode: code }));
+  }
+}
+
+function sendStart() { send({ type: 'start' }); }
+
+function leaveRoom() {
+  if (ws) { ws.close(); ws = null; }
+  myId = null; mySlot = -1; isHost = false;
+  gameState = null; prevState = null;
+  particles = []; bulletTrails = {};
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('dodge-indicator').style.display = 'none';
+  showScreen('menu');
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
+showScreen('menu');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
